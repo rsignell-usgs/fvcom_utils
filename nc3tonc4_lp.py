@@ -3,22 +3,7 @@ from netCDF4 import Dataset
 import numpy as NP
 import sys
 
-clobber = 1
-complevel = 6
-classic = 1
-zlib = 1
-shuffle = 1
-fletcher32 = 0
-unpackshort = 0
-quantize = None
-quiet = 0
-nchunk = 1
-
-lsd_dict=None
-
-nc3tonc4(filename3,filename4,unpackshort=unpackshort,zlib=zlib,complevel=complevel,shuffle=shuffle,fletcher32=fletcher32,clobber=clobber,lsd_dict=lsd_dict,nchunk=nchunk,quiet=quiet,classic=classic)
-
-def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=True,fletcher32=False,clobber=False,lsd_dict=None,nchunk=10,quiet=False,classic=0):
+def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=True,fletcher32=False,clobber=False,lsd_dict=None,nchunk=10,quiet=False,classic=0,istart=0,istop=-1):
     """convert a netcdf 3 file (filename3) to a netcdf 4 file
     The default format is 'NETCDF4', but can be set
     to NETCDF4_CLASSIC if classic=1.
@@ -51,11 +36,12 @@ def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=
             unlimdimname = dimname
             unlimdim = dim
             ncfile4.createDimension(dimname,None)
+            if istop == -1: istop==len(unlimdim)
         else:
             ncfile4.createDimension(dimname,len(dim))
     # create variables.
 #    varnamelist=['temp','u','v','zeta']
-    varnamelist=['zeta']
+    varnamelist=['ocean_time','lon_rho','lat_rho','h','zeta']
     vars = [ncfile3.variables[i] for i in varnamelist]
     myvarlist = zip(varnamelist,vars)
 #    for varname,ncvar in ncfile3.variables.items():
@@ -106,11 +92,11 @@ def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=
         if hasunlimdim: # has an unlim dim, loop over unlim dim index.
             # range to copy
             if nchunk:
-                start = 0; stop = len(unlimdim); step = nchunk
+                start = 0; stop = istop; step = nchunk
                 if step < 1: step = 1
                 for n in range(start, stop, step):
                     nmax = n+nchunk
-                    if nmax > len(unlimdim): nmax=len(unlimdim)
+                    if nmax > istop: nmax=istop
                     idata = ncvar[n:nmax]
                     if dounpackshort:
                         tmpdata = (ncvar.scale_factor*idata.astype('f')+ncvar.add_offset).astype('f')
@@ -127,7 +113,7 @@ def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=
                         tmpdata = NP.where(idata == ncvar.missing_value, mval, tmpdata)
                 else:
                     tmpdata = idata
-                var[0:len(unlimdim)] = tmpdata
+                var[0:istop] = tmpdata
         else: # no unlim dim or 1-d variable, just copy all data at once.
             idata = ncvar[:]
             if dounpackshort:
@@ -172,4 +158,20 @@ def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=
 \n""" 
 
 # default options
+clobber = 1
+complevel = 1
+classic = 1
+zlib = 1
+shuffle = 1
+fletcher32 = 0
+unpackshort = 0
+quantize = None
+quiet = 0
+nchunk = 1
+istart = 0
+istop = 3
+filename3 = 'http://geoport.whoi.edu/thredds/dodsC/examples/bora_feb.nc'
+filename4 = 'foo.nc'
+lsd_dict=None
 
+nc3tonc4(filename3,filename4,unpackshort=unpackshort,zlib=zlib,complevel=complevel,shuffle=shuffle,fletcher32=fletcher32,clobber=clobber,lsd_dict=lsd_dict,nchunk=nchunk,quiet=quiet,classic=classic,istart=istart,istop=istop)

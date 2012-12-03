@@ -3,6 +3,21 @@ from netCDF4 import Dataset
 import numpy as NP
 import sys
 
+clobber = 1
+complevel = 6
+classic = 1
+zlib = 1
+shuffle = 1
+fletcher32 = 0
+unpackshort = 0
+quantize = None
+quiet = 0
+nchunk = 1
+
+lsd_dict=None
+
+nc3tonc4(filename3,filename4,unpackshort=unpackshort,zlib=zlib,complevel=complevel,shuffle=shuffle,fletcher32=fletcher32,clobber=clobber,lsd_dict=lsd_dict,nchunk=nchunk,quiet=quiet,classic=classic)
+
 def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=True,fletcher32=False,clobber=False,lsd_dict=None,nchunk=10,quiet=False,classic=0):
     """convert a netcdf 3 file (filename3) to a netcdf 4 file
     The default format is 'NETCDF4', but can be set
@@ -39,7 +54,13 @@ def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=
         else:
             ncfile4.createDimension(dimname,len(dim))
     # create variables.
-    for varname,ncvar in ncfile3.variables.items():
+#    varnamelist=['temp','u','v','zeta']
+    varnamelist=['zeta']
+    vars = [ncfile3.variables[i] for i in varnamelist]
+    myvarlist = zip(varnamelist,vars)
+#    for varname,ncvar in ncfile3.variables.items():
+    for varname,ncvar in myvarlist:
+
         if not quiet: sys.stdout.write('copying variable %s\n' % varname)
         # quantize data?
         if lsd_dict is not None and lsd_dict.has_key(varname):
@@ -68,13 +89,13 @@ def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=
             FillValue = None 
         var = ncfile4.createVariable(varname,datatype,ncvar.dimensions, fill_value=FillValue, least_significant_digit=lsd,zlib=zlib,complevel=complevel,shuffle=shuffle,fletcher32=fletcher32)
         # fill variable attributes.
-	attdict = ncvar.__dict__
-	if '_FillValue' in attdict: del attdict['_FillValue']
-	if dounpackshort and 'add_offset' in attdict: del attdict['add_offset']
-	if dounpackshort and 'scale_factor' in attdict: del attdict['scale_factor']
-	if dounpackshort and 'missing_value' in attdict: attdict['missing_value']=mval
-	var.setncatts(attdict)
-        #for attname in ncvar.ncattrs():
+        attdict = ncvar.__dict__
+        if '_FillValue' in attdict: del attdict['_FillValue']
+        if dounpackshort and 'add_offset' in attdict: del attdict['add_offset']
+        if dounpackshort and 'scale_factor' in attdict: del attdict['scale_factor']
+        if dounpackshort and 'missing_value' in attdict: attdict['missing_value']=mval
+        var.setncatts(attdict)
+            #for attname in ncvar.ncattrs():
         #    if attname == '_FillValue': continue
         #    if dounpackshort and attname in ['add_offset','scale_factor']: continue
         #    if dounpackshort and attname == 'missing_value':
@@ -121,11 +142,7 @@ def nc3tonc4(filename3,filename4,unpackshort=True,zlib=True,complevel=6,shuffle=
     ncfile3.close()
     ncfile4.close()
 
-if __name__ == '__main__':
-
-    import getopt, os
-
-    usage = """
+"""
  Convert a netCDF 3 file to netCDF 4 format, optionally
  unpacking variables packed as short integers (with scale_factor and add_offset)
  to floats, and adding zlib compression (with the HDF5 shuffle filter and fletcher32 checksum).
@@ -152,86 +169,7 @@ if __name__ == '__main__':
  --chunk=(integer) -- number of records along unlimited dimension to 
      write at once.  Default 10.  Ignored if there is no unlimited 
      dimension.  chunk=0 means write all the data at once.
-\n""" % os.path.basename(sys.argv[0])
+\n""" 
 
-    try:
-        opts, pargs = getopt.getopt(sys.argv[1:], 'ho',
-                                    ['classic=',
-                                     'zlib=',
-                                     'quiet=',
-                                     'complevel=',
-                                     'shuffle=',
-                                     'fletcher32=',
-                                     'unpackshort=',
-                                     'quantize=',
-                                     'chunk='
-                                     ])
-    except:
-        (type, value, traceback) = sys.exc_info()
-        sys.stdout.write("Error parsing the options. The error was: %s\n" % value)
-        sys.stderr.write(usage)
-        sys.exit(0)
+# default options
 
-    # default options
-    overwritefile = 0
-    complevel = 6
-    classic = 1
-    zlib = 1
-    shuffle = 1
-    fletcher32 = 0
-    unpackshort = 1
-    quantize = None
-    quiet = 0
-    chunk = 1000
-
-    # Get the options
-    for option in opts:
-        if option[0] == '-h':
-            sys.stderr.write(usage)
-            sys.exit(0)
-        elif option[0] == '-o':
-            overwritefile = 1
-        elif option[0] == '--classic':
-            classic = int(option[1])
-        elif option[0] == '--zlib':
-            zlib = int(option[1])
-        elif option[0] == '--quiet':
-            quiet = int(option[1])
-        elif option[0] == '--complevel':
-            complevel = int(option[1])
-        elif option[0] == '--shuffle':
-            shuffle = int(option[1])
-        elif option[0] == '--fletcher32':
-            fletcher32 = int(option[1])
-        elif option[0] == '--unpackshort':
-            unpackshort = int(option[1])
-        elif option[0] == '--chunk':
-            chunk = int(option[1])
-        elif option[0] == '--quantize':
-            quantize = option[1]
-        else:
-            sys.stdout.write("%s: Unrecognized option\n" % option[0])
-            sys.stderr.write(usage)
-            sys.exit(0)
-
-    # if we pass a number of files different from 2, abort
-    if len(pargs) < 2 or len(pargs) > 2:
-        sys.stdout.write("You need to pass both source and destination!.\n")
-        sys.stderr.write(usage)
-        sys.exit(0)
-
-    # Catch the files passed as the last arguments
-    filename3 = pargs[0]
-    filename4 = pargs[1]
-
-    # Parse the quantize option, create a dictionary from key/value pairs.
-    if quantize is not None:
-        lsd_dict = {}
-        for p in quantize.split(','):
-            kv = p.split('=')
-            lsd_dict[kv[0]] = int(kv[1])
-    else:
-        lsd_dict=None
-
-    # copy the data from filename3 to filename4.
-    nc3tonc4(filename3,filename4,unpackshort=unpackshort,zlib=zlib,complevel=complevel,shuffle=shuffle,fletcher32=fletcher32,clobber=overwritefile,lsd_dict=lsd_dict,nchunk=chunk,quiet=quiet,classic=classic)
